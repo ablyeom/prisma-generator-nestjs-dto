@@ -150,6 +150,11 @@ export const generate = async (options: GeneratorOptions) => {
     true,
   );
 
+  const usePartialTypeProperty = stringToBoolean(
+    options.generator.config.usePartialTypeProperty,
+    false,
+  )
+
   const results = run({
     output,
     dmmf: options.dmmf,
@@ -171,6 +176,7 @@ export const generate = async (options: GeneratorOptions) => {
     prismaClientImportPath,
     outputApiPropertyType,
     generateFileTypes,
+    usePartialTypeProperty,
   });
 
   const indexCollections: Record<string, WriteableFileSpecs> = {};

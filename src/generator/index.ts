@@ -35,6 +35,7 @@ interface RunParam {
   prismaClientImportPath: string;
   outputApiPropertyType: boolean;
   generateFileTypes: string;
+  usePartialTypeProperty: boolean;
 }
 
 export const run = ({
@@ -55,6 +56,7 @@ export const run = ({
     prismaClientImportPath,
     outputApiPropertyType,
     generateFileTypes,
+    usePartialTypeProperty,
     ...preAndSuffixes
   } = options;
 
@@ -77,6 +79,7 @@ export const run = ({
     prismaClientImportPath,
     requiredResponseApiProperty,
     outputApiPropertyType,
+    usePartialTypeProperty,
     ...preAndSuffixes,
   });
   const allModels = dmmf.datamodel.models;

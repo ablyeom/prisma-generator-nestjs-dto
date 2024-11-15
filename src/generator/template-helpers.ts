@@ -104,6 +104,7 @@ interface MakeHelpersParam {
   requiredResponseApiProperty: boolean;
   prismaClientImportPath: string;
   outputApiPropertyType: boolean;
+  usePartialTypeProperty: boolean;
 }
 export const makeHelpers = ({
   connectDtoPrefix,
@@ -121,6 +122,7 @@ export const makeHelpers = ({
   requiredResponseApiProperty,
   prismaClientImportPath,
   outputApiPropertyType,
+  usePartialTypeProperty,
 }: MakeHelpersParam) => {
   const className = (name: string, prefix = '', suffix = '') =>
     `${prefix}${transformClassNameCase(name)}${suffix}`;
@@ -238,12 +240,15 @@ export const makeHelpers = ({
       '\n',
     )}`;
 
-  const fieldToEntityProp = (field: ParsedField) =>
-    `${decorateApiProperty(field)}${field.name}${unless(
+  const fieldToEntityProp = (field: ParsedField) => {
+    const type = fieldType(field)
+    const realType = usePartialTypeProperty ? (type.endsWith("[]") ? (`Partial<${type.slice(0, -2)}>` + "[]") : `Partial<${type}>`) : type
+    return `${decorateApiProperty(field)}${field.name}${unless(
       field.isRequired,
       '?',
       when(definiteAssignmentAssertion, '!'),
-    )}: ${fieldType(field)} ${when(field.isNullable, ' | null')};`;
+    )}: ${realType} ${when(field.isNullable, ' | null')};`;
+  };
 
   const fieldsToEntityProps = (fields: ParsedField[]) =>
     `${each(fields, (field) => fieldToEntityProp(field), '\n')}`;
@@ -266,6 +271,7 @@ export const makeHelpers = ({
       requiredResponseApiProperty,
       prismaClientImportPath,
       outputApiPropertyType,
+      usePartialTypeProperty,
     },
     apiExtraModels,
     entityName,

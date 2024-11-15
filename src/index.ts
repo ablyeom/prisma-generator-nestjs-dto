@@ -153,7 +153,7 @@ export const generate = async (options: GeneratorOptions) => {
   const usePartialTypeProperty = stringToBoolean(
     options.generator.config.usePartialTypeProperty,
     false,
-  )
+  );
 
   const results = run({
     output,

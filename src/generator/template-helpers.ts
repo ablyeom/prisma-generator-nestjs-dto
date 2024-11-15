@@ -106,6 +106,7 @@ interface MakeHelpersParam {
   outputApiPropertyType: boolean;
   usePartialTypeProperty: boolean;
 }
+
 export const makeHelpers = ({
   connectDtoPrefix,
   createDtoPrefix,
@@ -241,8 +242,13 @@ export const makeHelpers = ({
     )}`;
 
   const fieldToEntityProp = (field: ParsedField) => {
-    const type = fieldType(field)
-    const realType = usePartialTypeProperty ? (type.endsWith("[]") ? (`Partial<${type.slice(0, -2)}>` + "[]") : `Partial<${type}>`) : type
+    const type = fieldType(field);
+    const realType =
+      field.isRequired || !usePartialTypeProperty
+        ? type
+        : type.endsWith('[]')
+          ? `Partial<${type.slice(0, -2)}>` + '[]'
+          : `Partial<${type}>`;
     return `${decorateApiProperty(field)}${field.name}${unless(
       field.isRequired,
       '?',

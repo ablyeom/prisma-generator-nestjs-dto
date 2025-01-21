@@ -20,7 +20,11 @@ import type {
 } from './types';
 import { parseApiProperty } from './api-decorator';
 import { parseClassValidators } from './class-validator';
-import { DTO_CAST_TYPE } from './annotations';
+import {
+  DTO_OVERRIDE_API_PROPERTY_TYPE,
+  DTO_CAST_TYPE,
+  DTO_OVERRIDE_TYPE,
+} from './annotations';
 
 export const uniq = <T = any>(input: T[]): T[] => Array.from(new Set(input));
 export const concatIntoArray = <T = any>(source: T[], target: T[]) =>
@@ -46,74 +50,89 @@ export function concatUniqueIntoArray<T = any>(
 export const makeImportsFromPrismaClient = (
   fields: ParsedField[],
   prismaClientImportPath: string,
+  importEnums = true,
 ): ImportStatementParams[] => {
-  const enumsToImport = uniq(
-    fields.filter(({ kind }) => kind === 'enum').map(({ type }) => type),
-  );
+  const enumsToImport = importEnums
+    ? uniq(fields.filter(({ kind }) => kind === 'enum').map(({ type }) => type))
+    : [];
   const importPrisma = fields
     .filter(({ kind }) => kind === 'scalar')
     .some(
       ({ type, documentation }) =>
         !isAnnotatedWith({ documentation }, DTO_CAST_TYPE) &&
+        !isAnnotatedWith({ documentation }, DTO_OVERRIDE_TYPE) &&
         scalarToTS(type).includes('Prisma'),
     );
 
-  const prismaImport =
-    enumsToImport.length || importPrisma
-      ? [
-          {
-            from: prismaClientImportPath,
-            destruct: importPrisma
-              ? ['Prisma', ...enumsToImport]
-              : enumsToImport,
-          },
-        ]
-      : [];
+  return enumsToImport.length || importPrisma
+    ? [
+        {
+          from: prismaClientImportPath,
+          destruct: importPrisma ? ['Prisma', ...enumsToImport] : enumsToImport,
+        },
+      ]
+    : [];
+};
 
-  // Walk the fields for any that have a DTOCastType annotation that
-  // requires a custom import to be appended.
-  const customImports = fields.flatMap(({ documentation }) => {
-    const castType = isAnnotatedWith({ documentation }, DTO_CAST_TYPE, {
-      returnAnnotationParameters: true,
-    });
-    if (!castType || !castType.includes(',')) {
-      return [];
-    }
-
-    const [importAs, importFrom, importWas] = castType
-      .split(',')
-      .map((s) => s.trim());
-
-    if (!importFrom) {
-      throw new Error(
-        "Invalid DTOCastType annotation. Requesting import but did not provide 'from' value.",
+export const makeCustomImports = (
+  fields: ParsedField[],
+): ImportStatementParams[] => {
+  return [
+    [DTO_OVERRIDE_TYPE, DTO_CAST_TYPE],
+    [DTO_OVERRIDE_API_PROPERTY_TYPE],
+  ].flatMap((annotations) => {
+    // Walk the fields for any that have a DtoOverrideType/DtoApiOverrideType annotation that
+    // requires a custom import to be appended.
+    return fields.flatMap(({ documentation }) => {
+      // const castType = isAnnotatedWith({ documentation }, DTO_CAST_TYPE, {
+      //   returnAnnotationParameters: true,
+      // });
+      const castType = annotations.reduce(
+        (cast: string | false, annotation) => {
+          if (cast) return cast;
+          return isAnnotatedWith({ documentation }, annotation, {
+            returnAnnotationParameters: true,
+          });
+        },
+        false,
       );
-    }
+      if (!castType || !castType.includes(',')) {
+        return [];
+      }
 
-    if (!importWas || importWas === importAs) {
-      return {
-        from: importFrom,
-        destruct: [importAs],
-      };
-    } else if (importWas === 'default') {
-      return {
-        from: importFrom,
-        default: importAs,
-      };
-    } else if (importWas === '*') {
-      return {
-        from: importFrom,
-        default: { '*': importAs },
-      };
-    } else {
-      return {
-        from: importFrom,
-        destruct: [{ [importWas]: importAs }],
-      };
-    }
+      const [importAs, importFrom, importWas] = castType
+        .split(',')
+        .map((s) => s.trim());
+
+      if (!importFrom) {
+        throw new Error(
+          "Invalid DTOCastType annotation. Requesting import but did not provide 'from' value.",
+        );
+      }
+
+      if (!importWas || importWas === importAs) {
+        return {
+          from: importFrom,
+          destruct: [importAs],
+        };
+      } else if (importWas === 'default') {
+        return {
+          from: importFrom,
+          default: importAs,
+        };
+      } else if (importWas === '*') {
+        return {
+          from: importFrom,
+          default: { '*': importAs },
+        };
+      } else {
+        return {
+          from: importFrom,
+          destruct: [{ [importWas]: importAs }],
+        };
+      }
+    });
   });
-
-  return [...prismaImport, ...customImports];
 };
 
 export const mapDMMFToParsedField = (
@@ -256,6 +275,25 @@ export const generateRelationInput = ({
     [createRelation, connectRelation, disconnectRelation].filter((v) => v)
       .length === 1;
 
+  const rawCastType = [DTO_OVERRIDE_TYPE, DTO_CAST_TYPE].reduce(
+    (cast: string | false, annotation) => {
+      if (cast) return cast;
+      return isAnnotatedWith(field, annotation, {
+        returnAnnotationParameters: true,
+      });
+    },
+    false,
+  );
+  const castType = rawCastType ? rawCastType.split(',')[0] : undefined;
+  const rawCastApiType = isAnnotatedWith(
+    field,
+    DTO_OVERRIDE_API_PROPERTY_TYPE,
+    {
+      returnAnnotationParameters: true,
+    },
+  );
+  const castApiType = rawCastApiType ? rawCastApiType.split(',')[0] : undefined;
+
   if (createRelation) {
     const preAndPostfixedName = t.createDtoName(field.type);
     apiExtraModels.push(preAndPostfixedName);
@@ -284,7 +322,7 @@ export const generateRelationInput = ({
     if (t.config.classValidation) {
       decorators.classValidators = parseClassValidators(
         { ...field, isRequired },
-        preAndPostfixedName,
+        castType || preAndPostfixedName,
       );
       concatUniqueIntoArray(
         decorators.classValidators,
@@ -300,7 +338,7 @@ export const generateRelationInput = ({
       );
       decorators.apiProperties.push({
         name: 'type',
-        value: preAndPostfixedName,
+        value: castApiType ? '() => ' + castApiType : preAndPostfixedName,
         noEncapsulation: true,
       });
       if (field.isList)
@@ -309,7 +347,7 @@ export const generateRelationInput = ({
 
     relationInputClassProps.push({
       name: 'create',
-      type: preAndPostfixedName,
+      type: castType || preAndPostfixedName,
       apiProperties: decorators.apiProperties,
       classValidators: decorators.classValidators,
     });
@@ -342,7 +380,7 @@ export const generateRelationInput = ({
     if (t.config.classValidation) {
       decorators.classValidators = parseClassValidators(
         { ...field, isRequired },
-        preAndPostfixedName,
+        castType || preAndPostfixedName,
       );
       concatUniqueIntoArray(
         decorators.classValidators,
@@ -358,7 +396,7 @@ export const generateRelationInput = ({
       );
       decorators.apiProperties.push({
         name: 'type',
-        value: preAndPostfixedName,
+        value: castApiType ? '() => ' + castApiType : preAndPostfixedName,
         noEncapsulation: true,
       });
       if (field.isList)
@@ -367,7 +405,7 @@ export const generateRelationInput = ({
 
     relationInputClassProps.push({
       name: 'connect',
-      type: preAndPostfixedName,
+      type: castType || preAndPostfixedName,
       apiProperties: decorators.apiProperties,
       classValidators: decorators.classValidators,
     });
@@ -447,7 +485,7 @@ export const generateRelationInput = ({
       if (t.config.classValidation) {
         decorators.classValidators = parseClassValidators(
           { ...field, isRequired },
-          preAndPostfixedName,
+          castType || preAndPostfixedName,
         );
         concatUniqueIntoArray(
           decorators.classValidators,
@@ -463,14 +501,14 @@ export const generateRelationInput = ({
         );
         decorators.apiProperties.push({
           name: 'type',
-          value: preAndPostfixedName,
+          value: castApiType ? '() => ' + castApiType : preAndPostfixedName,
           noEncapsulation: true,
         });
       }
 
       relationInputClassProps.push({
         name: 'disconnect',
-        type: preAndPostfixedName,
+        type: castType || preAndPostfixedName,
         apiProperties: decorators.apiProperties,
         classValidators: decorators.classValidators,
       });
@@ -481,6 +519,17 @@ export const generateRelationInput = ({
     throw new Error(
       `Can not find relation input props for '${model.name}.${field.name}'`,
     );
+  }
+
+  if (t.config.wrapRelationsAsType) {
+    relationInputClassProps.forEach((prop) => {
+      prop.type += 'AsType';
+    });
+    imports.forEach(({ destruct }) => {
+      if (destruct && destruct[0]) {
+        destruct.push(`type ${destruct[0]} as ${destruct[0]}AsType`);
+      }
+    });
   }
 
   const originalInputClassName = `${t.transformClassNameCase(
@@ -571,7 +620,7 @@ export const generateUniqueInput = ({
 
     if (t.config.noDependencies) {
       if (field.type === 'Json') field.type = 'Object';
-      else if (field.type === 'Decimal') field.type = 'Float';
+      else if (field.type === 'Decimal') field.type = 'String';
     }
 
     return mapDMMFToParsedField(field, overrides, decorators);
@@ -659,5 +708,11 @@ export const zipImportStatementParams = (
     {} as Record<ImportStatementParams['from'], ImportStatementParams>,
   );
 
-  return Object.values(itemsByFrom);
+  const imports = Object.values(itemsByFrom);
+
+  imports.forEach((item) => {
+    item.destruct?.sort();
+  });
+
+  return imports;
 };

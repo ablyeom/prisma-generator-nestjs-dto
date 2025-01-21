@@ -1,6 +1,7 @@
 import { DMMF } from '@prisma/generator-helper';
-import { IClassValidator, ParsedField } from './types';
-import { isRelation, isType } from './field-classifiers';
+import { IClassValidator, ImportStatementParams, ParsedField } from './types';
+import { isAnnotatedWith, isRelation, isType } from './field-classifiers';
+import { DTO_CAST_TYPE, DTO_OVERRIDE_TYPE } from './annotations';
 
 const validatorsWithoutParams = [
   'IsEmpty',
@@ -212,6 +213,18 @@ export function parseClassValidators(
   if (isType(field) || isRelation(field)) {
     const nestedValidator: IClassValidator = { name: 'ValidateNested' };
     optEach(nestedValidator, field.isList);
+
+    const rawCastType = [DTO_OVERRIDE_TYPE, DTO_CAST_TYPE].reduce(
+      (cast: string | false, annotation) => {
+        if (cast) return cast;
+        return isAnnotatedWith(field, annotation, {
+          returnAnnotationParameters: true,
+        });
+      },
+      false,
+    );
+    const castType = rawCastType ? rawCastType.split(',')[0] : undefined;
+
     validators.push(nestedValidator);
     validators.push({
       name: 'Type',
@@ -220,7 +233,7 @@ export function parseClassValidators(
           ? typeof dtoName === 'string'
             ? dtoName
             : dtoName(field.type)
-          : field.type
+          : castType || field.type
       }`,
     });
   } else {
@@ -261,4 +274,36 @@ export function decorateClassValidators(field: ParsedField): string {
   });
 
   return output;
+}
+
+export function makeImportsFromClassValidator(
+  classValidators: IClassValidator[],
+): ImportStatementParams[] {
+  const validator = new Set<string>();
+  const transformer = new Set<string>();
+
+  classValidators?.forEach((cv) => {
+    if (cv.name === 'Type') {
+      transformer.add(cv.name);
+    } else {
+      validator.add(cv.name);
+    }
+  });
+
+  const imports: ImportStatementParams[] = [];
+
+  if (validator.size) {
+    imports.push({
+      from: 'class-validator',
+      destruct: [...validator.values()],
+    });
+  }
+  if (transformer.size) {
+    imports.push({
+      from: 'class-transformer',
+      destruct: [...transformer.values()],
+    });
+  }
+
+  return imports;
 }

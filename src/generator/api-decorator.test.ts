@@ -34,6 +34,10 @@ describe('encapsulateString', () => {
     expect(encapsulateString('false')).toEqual('false');
   });
 
+  it('should not encapsulate null', () => {
+    expect(encapsulateString('null')).toEqual('null');
+  });
+
   it('should not encapsulate number', () => {
     expect(encapsulateString('123')).toEqual('123');
     expect(encapsulateString('123.45')).toEqual('123.45');

@@ -2,7 +2,10 @@ import path from 'node:path';
 import slash from 'slash';
 import {
   DTO_API_HIDDEN,
+  DTO_OVERRIDE_API_PROPERTY_TYPE,
+  DTO_CAST_TYPE,
   DTO_ENTITY_HIDDEN,
+  DTO_OVERRIDE_TYPE,
   DTO_RELATION_REQUIRED,
 } from '../annotations';
 import {
@@ -14,6 +17,7 @@ import {
 import {
   getRelationScalars,
   getRelativePath,
+  makeCustomImports,
   makeImportsFromPrismaClient,
   mapDMMFToParsedField,
   zipImportStatementParams,
@@ -61,7 +65,14 @@ export const computeEntityParams = ({
 
     if (isType(field)) {
       // don't try to import the class we're preparing params for
-      if (field.type !== model.name) {
+      if (
+        field.type !== model.name &&
+        !(
+          (isAnnotatedWith(field, DTO_OVERRIDE_TYPE) ||
+            isAnnotatedWith(field, DTO_CAST_TYPE)) &&
+          isAnnotatedWith(field, DTO_OVERRIDE_API_PROPERTY_TYPE)
+        )
+      ) {
         const modelToImportFrom = allModels.find(
           ({ name }) => name === field.type,
         );
@@ -79,21 +90,15 @@ export const computeEntityParams = ({
           )}${path.sep}${templateHelpers.plainDtoFilename(field.type)}`,
         );
 
-        // don't double-import the same thing
-        // TODO should check for match on any import name ( - no matter where from)
-        if (
-          !imports.some(
-            (item) =>
-              Array.isArray(item.destruct) &&
-              item.destruct.includes(importName) &&
-              item.from === importFrom,
-          )
-        ) {
-          imports.push({
-            destruct: [importName],
-            from: importFrom,
-          });
-        }
+        imports.push({
+          destruct: [
+            importName,
+            ...(templateHelpers.config.wrapRelationsAsType
+              ? [`type ${importName} as ${importName}AsType`]
+              : []),
+          ],
+          from: importFrom,
+        });
       }
     }
 
@@ -101,15 +106,23 @@ export const computeEntityParams = ({
     // they can however be `selected` and thus might optionally be present in the
     // response from PrismaClient
     if (isRelation(field)) {
-      overrides.isRequired = false;
+      const isRelationRequired = isAnnotatedWith(field, DTO_RELATION_REQUIRED);
+      overrides.isRequired = isRelationRequired;
       overrides.isNullable = field.isList
         ? false
         : field.isRequired
           ? false
-          : !isAnnotatedWith(field, DTO_RELATION_REQUIRED);
+          : !isRelationRequired;
 
       // don't try to import the class we're preparing params for
-      if (field.type !== model.name) {
+      if (
+        field.type !== model.name &&
+        !(
+          (isAnnotatedWith(field, DTO_OVERRIDE_TYPE) ||
+            isAnnotatedWith(field, DTO_CAST_TYPE)) &&
+          isAnnotatedWith(field, DTO_OVERRIDE_API_PROPERTY_TYPE)
+        )
+      ) {
         const modelToImportFrom = allModels.find(
           ({ name }) => name === field.type,
         ) as Model | undefined;
@@ -127,21 +140,15 @@ export const computeEntityParams = ({
           )}${path.sep}${templateHelpers.entityFilename(field.type)}`,
         );
 
-        // don't double-import the same thing
-        // TODO should check for match on any import name ( - no matter where from)
-        if (
-          !imports.some(
-            (item) =>
-              Array.isArray(item.destruct) &&
-              item.destruct.includes(importName) &&
-              item.from === importFrom,
-          )
-        ) {
-          imports.push({
-            destruct: [importName],
-            from: importFrom,
-          });
-        }
+        imports.push({
+          destruct: [
+            importName,
+            ...(templateHelpers.config.wrapRelationsAsType
+              ? [`type ${importName} as ${importName}AsType`]
+              : []),
+          ],
+          from: importFrom,
+        });
       }
     }
 
@@ -170,10 +177,10 @@ export const computeEntityParams = ({
         decorators.apiProperties = parseApiProperty(
           {
             ...field,
+            ...overrides,
             isRequired: templateHelpers.config.requiredResponseApiProperty
               ? !!overrides.isRequired
               : false,
-            isNullable: !field.isRequired,
           },
           {
             default: false,
@@ -196,7 +203,19 @@ export const computeEntityParams = ({
 
     if (templateHelpers.config.noDependencies) {
       if (field.type === 'Json') field.type = 'Object';
-      else if (field.type === 'Decimal') field.type = 'Float';
+      else if (field.type === 'Decimal') field.type = 'String';
+
+      if (field.kind === 'enum') {
+        imports.push({
+          from: slash(
+            `${getRelativePath(
+              model.output.entity,
+              templateHelpers.config.outputPath,
+            )}${path.sep}enums`,
+          ),
+          destruct: [field.type],
+        });
+      }
     }
 
     return [...result, mapDMMFToParsedField(field, overrides, decorators)];
@@ -205,12 +224,13 @@ export const computeEntityParams = ({
   const importPrismaClient = makeImportsFromPrismaClient(
     fields,
     templateHelpers.config.prismaClientImportPath,
+    !templateHelpers.config.noDependencies,
   );
-
   const importNestjsSwagger = makeImportsFromNestjsSwagger(
     fields,
     apiExtraModels,
   );
+  const customImports = makeCustomImports(fields);
 
   return {
     model,
@@ -218,6 +238,7 @@ export const computeEntityParams = ({
     imports: zipImportStatementParams([
       ...importPrismaClient,
       ...importNestjsSwagger,
+      ...customImports,
       ...imports,
     ]),
     apiExtraModels,

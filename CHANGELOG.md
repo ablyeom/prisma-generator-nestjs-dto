@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.24.1] - 2025-01-18
+
+### Fixed
+
+- fix type definition for `Decimal` fields, which (de-)serializes `string` values instead of `number` [#63][i63]
+
+## [1.24.0] - 2025-01-18
+
+### Added
+
+- add `wrapRelationsAsType = "true"` to import relation dependencies as types to solve circular reference issues with SWC [#39][i39] [#49][i49], making `outputApiPropertyType = "false"` obsolete (deprecated)
+- new flag `showDefaultValues = "true"` makes fields with `@default` attribute visible by default [#51][i51]
+- add enumName to ApiProperty [#52][i52]
+- add `@DtoCreateRequired` that marks field **required** in `CreateDTO` that is otherwise optional (equivalent to `@DtoUpdateRequired`) [#55][i55]
+
+### Changed
+
+- deprecate `@DtoCastType` in favor of `@DtoOverrideType` and `@DtoOverrideApiPropertyType` to control type casting for both property type and type of ApiProperty decorator separately [#54][i54]
+
+### Fixed
+
+- fix ApiProperty default value if field is a list
+- generate enums if `noDependencies = true`, i.e. no dependency `@prisma/client` [#48][i48]
+- fix `@DtoRelationRequired` still marking property as optional [#54][i54]
+
 ## [1.23.3] - 2024-10-26
 
 ### Fixed
@@ -358,6 +383,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [i42]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/42
 [pr43]: https://github.com/Brakebein/prisma-generator-nestjs-dto/pull/43
 [i44]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/44
+[i48]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/48
+[i49]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/49
+[i51]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/51
+[i52]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/52
 [pr53]: https://github.com/Brakebein/prisma-generator-nestjs-dto/pull/53
+[i54]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/54
+[i55]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/55
 [pr56]: https://github.com/Brakebein/prisma-generator-nestjs-dto/pull/56
 [i58]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/58
+[i63]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/63

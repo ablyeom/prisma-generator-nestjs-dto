@@ -593,7 +593,9 @@ export const generateRelationInput = ({
 
   if (t.config.wrapRelationsAsType) {
     relationInputClassProps.forEach((prop) => {
-      prop.type += 'AsType';
+      if (prop.type !== 'boolean') {
+        prop.type += 'AsType';
+      }
     });
     imports.forEach(({ destruct }) => {
       if (destruct && destruct[0]) {

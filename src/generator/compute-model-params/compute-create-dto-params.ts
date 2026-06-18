@@ -53,6 +53,7 @@ import {
   makeImportsFromClassValidator,
   parseClassValidators,
 } from '../class-validator';
+import { parseJsdoc } from '../jsdoc';
 
 interface ComputeCreateDtoParamsParam {
   model: Model;
@@ -269,6 +270,10 @@ export const computeCreateDtoParams = ({
           destruct: [field.type],
         });
       }
+    }
+
+    if (templateHelpers.config.outputJsdoc) {
+      overrides.jsdoc = parseJsdoc(field, true);
     }
 
     return [

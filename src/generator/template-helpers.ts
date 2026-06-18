@@ -7,6 +7,7 @@ import {
   DTO_OVERRIDE_TYPE,
   DTO_TYPE_FULL_UPDATE,
 } from './annotations';
+import { printJsdoc } from './jsdoc';
 
 const PrismaScalarToTypeScript: Record<string, string> = {
   String: 'string',
@@ -110,6 +111,7 @@ interface MakeHelpersParam {
   outputApiPropertyType: boolean;
   wrapRelationsAsType: boolean;
   showDefaultValues: boolean;
+  outputJsdoc: boolean;
 }
 export const makeHelpers = ({
   connectDtoPrefix,
@@ -130,6 +132,7 @@ export const makeHelpers = ({
   outputApiPropertyType,
   wrapRelationsAsType,
   showDefaultValues,
+  outputJsdoc,
 }: MakeHelpersParam) => {
   const className = (name: string, prefix = '', suffix = '') =>
     `${prefix}${transformClassNameCase(name)}${suffix}`;
@@ -227,7 +230,7 @@ export const makeHelpers = ({
     useInputTypes = false,
     forceOptional = false,
   ) =>
-    `${decorateApiProperty(field)}${decorateClassValidators(field)}${
+    `${printJsdoc(field)}${decorateApiProperty(field)}${decorateClassValidators(field)}${
       field.name
     }${unless(
       field.isRequired && !forceOptional,
@@ -256,7 +259,7 @@ export const makeHelpers = ({
     )}`;
 
   const fieldToEntityProp = (field: ParsedField) =>
-    `${decorateApiProperty(field)}${field.name}${unless(
+    `${printJsdoc(field)}${decorateApiProperty(field)}${field.name}${unless(
       field.isRequired,
       '?',
       when(definiteAssignmentAssertion, '!'),
@@ -286,6 +289,7 @@ export const makeHelpers = ({
       outputApiPropertyType,
       wrapRelationsAsType,
       showDefaultValues,
+      outputJsdoc,
     },
     apiExtraModels,
     entityName,

@@ -25,6 +25,7 @@ generator nestjsDto {
   noDependencies                  = "false"
   outputType                      = "class"
   definiteAssignmentAssertion     = "true"
+  jsdoc                           = "true"
   prettier                        = "true"
   outputApiPropertyType           = "true"
   wrapRelationsAsType             = "true"

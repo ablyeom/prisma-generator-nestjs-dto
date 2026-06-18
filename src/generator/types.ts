@@ -35,6 +35,7 @@ export interface ParsedField {
   relationFromFields?: string[];
   relationToFields?: string[];
   pureType?: boolean;
+  jsdoc?: { description?: string; default?: any };
 }
 
 export interface ExtraModel {

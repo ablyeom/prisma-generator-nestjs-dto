@@ -1,5 +1,6 @@
 import slash from 'slash';
 import path from 'node:path';
+import { WritableDeep } from 'type-fest';
 import type { DMMF } from '@prisma/generator-helper';
 import { isAnnotatedWith, isId, isUnique } from '../field-classifiers';
 import {
@@ -31,7 +32,6 @@ import {
   parseClassValidators,
 } from '../class-validator';
 import { DTO_CONNECT_HIDDEN } from '../annotations';
-import { WritableDeep } from 'type-fest';
 
 interface ComputeConnectDtoParamsParam {
   model: Model;

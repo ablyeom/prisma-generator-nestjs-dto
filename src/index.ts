@@ -174,6 +174,8 @@ export const generate = async (options: WritableDeep<GeneratorOptions>) => {
     false,
   );
 
+  const outputJsdoc = stringToBoolean(options.generator.config.jsdoc, false);
+
   const results = run({
     output,
     dmmf: options.dmmf,
@@ -197,6 +199,7 @@ export const generate = async (options: WritableDeep<GeneratorOptions>) => {
     generateFileTypes: generateFileTypes as string,
     wrapRelationsAsType,
     showDefaultValues,
+    outputJsdoc,
   });
 
   // check for deprecated annotations

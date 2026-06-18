@@ -55,6 +55,7 @@ import type {
   ParsedField,
   UpdateDtoParams,
 } from '../types';
+import { parseJsdoc } from '../jsdoc';
 
 interface ComputeUpdateDtoParamsParam {
   model: Model;
@@ -271,6 +272,10 @@ export const computeUpdateDtoParams = ({
           destruct: [field.type],
         });
       }
+    }
+
+    if (templateHelpers.config.outputJsdoc) {
+      overrides.jsdoc = parseJsdoc(field, true);
     }
 
     return [

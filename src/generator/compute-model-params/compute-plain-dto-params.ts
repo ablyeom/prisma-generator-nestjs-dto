@@ -29,6 +29,7 @@ import {
   makeImportsFromNestjsSwagger,
   parseApiProperty,
 } from '../api-decorator';
+import { parseJsdoc } from '../jsdoc';
 
 interface ComputePlainDtoParamsParam {
   model: Model;
@@ -145,6 +146,10 @@ export const computePlainDtoParams = ({
           destruct: [field.type],
         });
       }
+    }
+
+    if (templateHelpers.config.outputJsdoc) {
+      overrides.jsdoc = parseJsdoc(field, false);
     }
 
     return [

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.30.0] - 2026-06-18
+
+### Added
+
+- add `jsdoc` flag to output a basic JSDoc section including the descripton and default value
+
+### Fixed
+
+- fix do not wrap `boolean` as type
+
 ## [1.29.0] - 2025-12-12
 
 - dependency updates

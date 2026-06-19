@@ -7,8 +7,8 @@ import {
   isUnique,
 } from './field-classifiers';
 import { scalarToTS } from './template-helpers';
-
 import type { DMMF } from '@prisma/generator-helper';
+import { WritableDeep } from 'type-fest';
 import type { TemplateHelpers } from './template-helpers';
 import type {
   IApiProperty,
@@ -136,8 +136,8 @@ export const makeCustomImports = (
 };
 
 export const mapDMMFToParsedField = (
-  field: DMMF.Field,
-  overrides: Partial<DMMF.Field> = {},
+  field: WritableDeep<DMMF.Field> | ParsedField,
+  overrides: Partial<ParsedField> = {},
   decorators: IDecorators = {},
 ): ParsedField => ({
   ...field,
@@ -146,7 +146,7 @@ export const mapDMMFToParsedField = (
 });
 
 export const getRelationScalars = (
-  fields: DMMF.Field[],
+  fields: ParsedField[],
 ): Record<string, string[]> => {
   const scalars = fields.flatMap(
     ({ relationFromFields = [] }) => relationFromFields,
@@ -166,7 +166,7 @@ export const getRelationScalars = (
 };
 
 interface GetRelationConnectInputFieldsParam {
-  field: DMMF.Field;
+  field: ParsedField;
   allModels: DMMF.Model[];
 }
 export const getRelationConnectInputFields = ({
@@ -233,7 +233,7 @@ export const getRelativePath = (from: string, to: string) => {
 };
 
 interface GenerateRelationInputParam {
-  field: DMMF.Field;
+  field: ParsedField;
   model: Model;
   allModels: Model[];
   templateHelpers: TemplateHelpers;
@@ -242,6 +242,7 @@ interface GenerateRelationInputParam {
     | TemplateHelpers['updateDtoName'];
   canCreateAnnotation: RegExp;
   canConnectAnnotation: RegExp;
+  canUpdateAnnotation?: RegExp;
   canDisconnectAnnotation?: RegExp;
 }
 export const generateRelationInput = ({
@@ -252,6 +253,7 @@ export const generateRelationInput = ({
   preAndSuffixClassName,
   canCreateAnnotation,
   canConnectAnnotation,
+  canUpdateAnnotation,
   canDisconnectAnnotation,
 }: GenerateRelationInputParam) => {
   const relationInputClassProps: Array<
@@ -265,15 +267,22 @@ export const generateRelationInput = ({
 
   const createRelation = isAnnotatedWith(field, canCreateAnnotation);
   const connectRelation = isAnnotatedWith(field, canConnectAnnotation);
+  const updatetRelation = canUpdateAnnotation
+    ? isAnnotatedWith(field, canUpdateAnnotation)
+    : undefined;
   const disconnectRelation = canDisconnectAnnotation
     ? isAnnotatedWith(field, canDisconnectAnnotation)
     : undefined;
   // should the validation require the relation field to exist
   // this should only be true in cases where only one relation field is generated
-  // for multiple relaiton fields, e.g. create AND connect, each should be optional
+  // for multiple relation fields, e.g. create AND connect, each should be optional
   const isRequired =
-    [createRelation, connectRelation, disconnectRelation].filter((v) => v)
-      .length === 1;
+    [
+      createRelation,
+      connectRelation,
+      updatetRelation,
+      disconnectRelation,
+    ].filter((v) => v).length === 1;
 
   const rawCastType = [DTO_OVERRIDE_TYPE, DTO_CAST_TYPE].reduce(
     (cast: string | false, annotation) => {
@@ -333,7 +342,7 @@ export const generateRelationInput = ({
 
     if (!t.config.noDependencies) {
       decorators.apiProperties = parseApiProperty(
-        { ...field, isRequired },
+        { ...field, isRequired, isNullable: false },
         { type: false },
       );
       decorators.apiProperties.push({
@@ -391,7 +400,7 @@ export const generateRelationInput = ({
 
     if (!t.config.noDependencies) {
       decorators.apiProperties = parseApiProperty(
-        { ...field, isRequired },
+        { ...field, isRequired, isNullable: false },
         { type: false },
       );
       decorators.apiProperties.push({
@@ -440,7 +449,7 @@ export const generateRelationInput = ({
 
       if (!t.config.noDependencies) {
         decorators.apiProperties = parseApiProperty(
-          { ...field, isRequired },
+          { ...field, isRequired, isNullable: false },
           { type: false },
         );
         decorators.apiProperties.push({
@@ -496,7 +505,7 @@ export const generateRelationInput = ({
 
       if (!t.config.noDependencies) {
         decorators.apiProperties = parseApiProperty(
-          { ...field, isRequired },
+          { ...field, isRequired, isNullable: false },
           { type: false },
         );
         decorators.apiProperties.push({
@@ -515,6 +524,67 @@ export const generateRelationInput = ({
     }
   }
 
+  if (updatetRelation) {
+    if (field.isList) {
+      throw new Error(
+        `model ${model.name} { ${field.name} ${field.type}[] } - ${canUpdateAnnotation?.source} cannot be applied to "-to-many" relations!`,
+      );
+    }
+    const preAndPostfixedName = t.updateDtoName(field.type);
+    apiExtraModels.push(preAndPostfixedName);
+    const modelToImportFrom = allModels.find(({ name }) => name === field.type);
+
+    if (!modelToImportFrom)
+      throw new Error(
+        `related model '${field.type}' for '${model.name}.${field.name}' not found`,
+      );
+
+    imports.push({
+      from: slash(
+        `${getRelativePath(model.output.dto, modelToImportFrom.output.dto)}${
+          path.sep
+        }${t.updateDtoFilename(field.type)}`,
+      ),
+      destruct: [preAndPostfixedName],
+    });
+
+    const decorators: {
+      apiProperties?: IApiProperty[];
+      classValidators?: IClassValidator[];
+    } = {};
+
+    if (t.config.classValidation) {
+      decorators.classValidators = parseClassValidators(
+        { ...field, isRequired },
+        castType || preAndPostfixedName,
+      );
+      concatUniqueIntoArray(
+        decorators.classValidators,
+        classValidators,
+        'name',
+      );
+    }
+
+    if (!t.config.noDependencies) {
+      decorators.apiProperties = parseApiProperty(
+        { ...field, isRequired, isNullable: false },
+        { type: false },
+      );
+      decorators.apiProperties.push({
+        name: 'type',
+        value: castApiType ? '() => ' + castApiType : preAndPostfixedName,
+        noEncapsulation: true,
+      });
+    }
+
+    relationInputClassProps.push({
+      name: 'update',
+      type: castType || preAndPostfixedName,
+      apiProperties: decorators.apiProperties,
+      classValidators: decorators.classValidators,
+    });
+  }
+
   if (!relationInputClassProps.length) {
     throw new Error(
       `Can not find relation input props for '${model.name}.${field.name}'`,
@@ -523,7 +593,9 @@ export const generateRelationInput = ({
 
   if (t.config.wrapRelationsAsType) {
     relationInputClassProps.forEach((prop) => {
-      prop.type += 'AsType';
+      if (prop.type !== 'boolean') {
+        prop.type += 'AsType';
+      }
     });
     imports.forEach(({ destruct }) => {
       if (destruct && destruct[0]) {
@@ -548,6 +620,10 @@ export const generateRelationInput = ({
         kind: 'relation-input',
         isRequired: relationInputClassProps.length === 1,
         isList: field.isList,
+        isId: field.isId,
+        isUnique: field.isUnique,
+        isReadOnly: field.isReadOnly,
+        documentation: field.documentation,
       })),
       'plain',
       true,
@@ -567,7 +643,7 @@ export const generateRelationInput = ({
 
 interface GenerateUniqueInputParam {
   compoundName: string;
-  fields: DMMF.Field[];
+  fields: ParsedField[];
   model: Model;
   templateHelpers: TemplateHelpers;
 }
@@ -583,7 +659,7 @@ export const generateUniqueInput = ({
   const classValidators: IClassValidator[] = [];
 
   const parsedFields = fields.map((field) => {
-    const overrides: Partial<DMMF.Field> = { isRequired: true };
+    const overrides: Partial<ParsedField> = { isRequired: true };
     const decorators: {
       apiProperties?: IApiProperty[];
       classValidators?: IClassValidator[];
@@ -643,10 +719,15 @@ export const generateUniqueInput = ({
     fields,
     t.config.prismaClientImportPath,
   );
+  const customImports = makeCustomImports(fields);
 
   return {
     type: preAndPostfixedInputClassName,
-    imports: zipImportStatementParams([...importPrismaClient, ...imports]),
+    imports: zipImportStatementParams([
+      ...importPrismaClient,
+      ...customImports,
+      ...imports,
+    ]),
     generatedClasses,
     apiExtraModels,
     classValidators,

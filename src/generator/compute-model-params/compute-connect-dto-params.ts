@@ -1,5 +1,6 @@
 import slash from 'slash';
 import path from 'node:path';
+import { WritableDeep } from 'type-fest';
 import type { DMMF } from '@prisma/generator-helper';
 import { isAnnotatedWith, isId, isUnique } from '../field-classifiers';
 import {
@@ -7,6 +8,7 @@ import {
   concatUniqueIntoArray,
   generateUniqueInput,
   getRelativePath,
+  makeCustomImports,
   makeImportsFromPrismaClient,
   mapDMMFToParsedField,
   uniq,
@@ -18,6 +20,7 @@ import type {
   IDecorators,
   ImportStatementParams,
   Model,
+  ParsedField,
 } from '../types';
 import { TemplateHelpers } from '../template-helpers';
 import {
@@ -55,10 +58,13 @@ export const computeConnectDtoParams = ({
     fields: string[];
   }[] = model.uniqueIndexes;
   if (model.primaryKey) uniqueCompoundFields.unshift(model.primaryKey);
-  const uniqueCompounds: { name: string; fields: DMMF.Field[] }[] = [];
+  const uniqueCompounds: {
+    name: string;
+    fields: WritableDeep<DMMF.Field>[];
+  }[] = [];
 
   uniqueCompoundFields.forEach((uniqueIndex) => {
-    const fields: DMMF.Field[] = [];
+    const fields: WritableDeep<DMMF.Field>[] = [];
     uniqueIndex.fields.forEach((fieldName) => {
       const field = model.fields.find((f) => f.name === fieldName);
       if (field) fields.push(field);
@@ -79,10 +85,10 @@ export const computeConnectDtoParams = ({
    * connect?: (A | B)[];
    */
   // TODO consider adding documentation block to model that one of the properties must be provided
-  const uniqueFields = uniq([...idFields, ...isUniqueFields]);
+  const uniqueFields: ParsedField[] = uniq([...idFields, ...isUniqueFields]);
   const overrides =
     uniqueFields.length + uniqueCompounds.length > 1
-      ? { isRequired: false }
+      ? { isRequired: false, isNullable: false }
       : {};
 
   uniqueCompounds.forEach((compound) => {
@@ -166,7 +172,11 @@ export const computeConnectDtoParams = ({
       }
     }
 
-    return mapDMMFToParsedField(field, overrides, decorators);
+    return mapDMMFToParsedField(
+      field,
+      { ...overrides, modelName: model.name },
+      decorators,
+    );
   });
 
   const importPrismaClient = makeImportsFromPrismaClient(
@@ -174,13 +184,12 @@ export const computeConnectDtoParams = ({
     templateHelpers.config.prismaClientImportPath,
     !templateHelpers.config.noDependencies,
   );
-
   const importNestjsSwagger = makeImportsFromNestjsSwagger(
     fields,
     apiExtraModels,
   );
-
   const importClassValidator = makeImportsFromClassValidator(classValidators);
+  const customImports = makeCustomImports(fields);
 
   return {
     model,
@@ -189,6 +198,7 @@ export const computeConnectDtoParams = ({
       ...importPrismaClient,
       ...importNestjsSwagger,
       ...importClassValidator,
+      ...customImports,
       ...imports,
     ]),
     extraClasses,

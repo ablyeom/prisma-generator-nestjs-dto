@@ -22,8 +22,6 @@ import {
   mapDMMFToParsedField,
   zipImportStatementParams,
 } from '../helpers';
-
-import type { DMMF } from '@prisma/generator-helper';
 import type {
   Model,
   EntityParams,
@@ -36,6 +34,7 @@ import {
   makeImportsFromNestjsSwagger,
   parseApiProperty,
 } from '../api-decorator';
+import { parseJsdoc } from '../jsdoc';
 
 interface ComputeEntityParamsParam {
   model: Model;
@@ -55,7 +54,7 @@ export const computeEntityParams = ({
 
   const fields = model.fields.reduce((result, field) => {
     const { name } = field;
-    const overrides: Partial<DMMF.Field> = {
+    const overrides: Partial<ParsedField> = {
       isRequired: true,
       isNullable: !field.isRequired,
     };
@@ -143,7 +142,8 @@ export const computeEntityParams = ({
         imports.push({
           destruct: [
             importName,
-            ...(templateHelpers.config.wrapRelationsAsType
+            ...(templateHelpers.config.wrapRelationsAsType &&
+            field.type !== model.name
               ? [`type ${importName} as ${importName}AsType`]
               : []),
           ],
@@ -218,7 +218,18 @@ export const computeEntityParams = ({
       }
     }
 
-    return [...result, mapDMMFToParsedField(field, overrides, decorators)];
+    if (templateHelpers.config.outputJsdoc) {
+      overrides.jsdoc = parseJsdoc(field, false);
+    }
+
+    return [
+      ...result,
+      mapDMMFToParsedField(
+        field,
+        { ...overrides, modelName: model.name },
+        decorators,
+      ),
+    ];
   }, [] as ParsedField[]);
 
   const importPrismaClient = makeImportsFromPrismaClient(

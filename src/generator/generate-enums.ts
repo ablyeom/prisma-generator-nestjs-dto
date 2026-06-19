@@ -1,8 +1,11 @@
 import { DMMF } from '@prisma/generator-helper';
+import { WritableDeep } from 'type-fest';
 import { camel } from 'case';
 import { each } from './template-helpers';
 
-export const generateEnums = (enumModels: DMMF.DatamodelEnum[]) => `
+export const generateEnums = (
+  enumModels: WritableDeep<DMMF.DatamodelEnum>[],
+) => `
 ${each(
   enumModels,
   (model) => `

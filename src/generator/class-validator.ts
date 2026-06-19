@@ -1,4 +1,3 @@
-import { DMMF } from '@prisma/generator-helper';
 import { IClassValidator, ImportStatementParams, ParsedField } from './types';
 import { isAnnotatedWith, isRelation, isType } from './field-classifiers';
 import { DTO_CAST_TYPE, DTO_OVERRIDE_TYPE } from './annotations';
@@ -141,7 +140,7 @@ function scalarToValidator(scalar: string): IClassValidator | undefined {
 }
 
 function extractValidator(
-  field: DMMF.Field,
+  field: ParsedField,
   prop: string,
 ): IClassValidator | null {
   const regexp = new RegExp(`@${prop}(?:\\(([^)]*)\\))?\s*$`, 'm');
@@ -195,7 +194,7 @@ function optEach(validator: IClassValidator, isList: boolean): void {
  * Parse all types of class validators.
  */
 export function parseClassValidators(
-  field: DMMF.Field,
+  field: ParsedField,
   dtoName?: string | ((name: string) => string),
 ): IClassValidator[] {
   const validators: IClassValidator[] = [];
@@ -236,6 +235,13 @@ export function parseClassValidators(
           : castType || field.type
       }`,
     });
+  } else if (field.kind === 'enum') {
+    const enumValidator: IClassValidator = {
+      name: 'IsEnum',
+      value: field.type,
+    };
+    optEach(enumValidator, field.isList);
+    validators.push(enumValidator);
   } else {
     const typeValidator = scalarToValidator(field.type);
     if (typeValidator) {

@@ -36,8 +36,6 @@ import {
   mapDMMFToParsedField,
   zipImportStatementParams,
 } from '../helpers';
-
-import type { DMMF } from '@prisma/generator-helper';
 import type { TemplateHelpers } from '../template-helpers';
 import type {
   Model,
@@ -55,6 +53,7 @@ import {
   makeImportsFromClassValidator,
   parseClassValidators,
 } from '../class-validator';
+import { parseJsdoc } from '../jsdoc';
 
 interface ComputeCreateDtoParamsParam {
   model: Model;
@@ -76,7 +75,7 @@ export const computeCreateDtoParams = ({
 
   const fields = model.fields.reduce((result, field) => {
     const { name } = field;
-    const overrides: Partial<DMMF.Field> = {};
+    const overrides: Partial<ParsedField> = {};
     const decorators: IDecorators = {};
 
     if (
@@ -116,6 +115,7 @@ export const computeCreateDtoParams = ({
       // since relation input field types are translated to something like { connect: Foo[] }, the field type itself is not a list anymore.
       // You provide list input in the nested `connect` or `create` properties.
       overrides.isList = false;
+      overrides.isNullable = false;
 
       concatIntoArray(relationInputType.imports, imports);
       concatIntoArray(relationInputType.generatedClasses, extraClasses);
@@ -137,7 +137,10 @@ export const computeCreateDtoParams = ({
     // fields annotated with @DtoReadOnly are filtered out before this
     // so this safely allows to mark fields that are required in Prisma Schema
     // as **not** required in CreateDTO
-    const isDtoOptional = isAnnotatedWith(field, DTO_CREATE_OPTIONAL);
+    const isDtoOptional = isAnnotatedWithOneOf(field, [
+      DTO_CREATE_OPTIONAL,
+      DTO_CREATE_REQUIRED,
+    ]);
 
     if (!isDtoOptional) {
       if (isIdWithDefaultValue(field)) return result;
@@ -156,7 +159,8 @@ export const computeCreateDtoParams = ({
       overrides.isRequired = true;
     }
 
-    overrides.isNullable = !(field.isRequired || overrides.isRequired);
+    overrides.isNullable =
+      overrides.isNullable ?? !(field.isRequired || overrides.isRequired);
 
     if (isType(field)) {
       // don't try to import the class we're preparing params for
@@ -268,7 +272,18 @@ export const computeCreateDtoParams = ({
       }
     }
 
-    return [...result, mapDMMFToParsedField(field, overrides, decorators)];
+    if (templateHelpers.config.outputJsdoc) {
+      overrides.jsdoc = parseJsdoc(field, true);
+    }
+
+    return [
+      ...result,
+      mapDMMFToParsedField(
+        field,
+        { ...overrides, modelName: model.name },
+        decorators,
+      ),
+    ];
   }, [] as ParsedField[]);
 
   const importPrismaClient = makeImportsFromPrismaClient(

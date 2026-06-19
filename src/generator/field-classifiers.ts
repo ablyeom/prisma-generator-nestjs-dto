@@ -1,5 +1,6 @@
 import { DTO_READ_ONLY } from './annotations';
 import type { DMMF } from '@prisma/generator-helper';
+import { ParsedField } from './types';
 
 const ANNOTATION_PARAMS_REGEX =
   /(?:\(([@_A-Za-z0-9\-\/\>\+\=\'\.\\\, \[\]]*)\))?/;
@@ -65,52 +66,50 @@ export const isAnnotatedWithOneOf = (
 // relationToFields,
 // relationOnDelete,
 
-export const isId = (field: DMMF.Field): boolean => {
+export const isId = (field: DMMF.Field | ParsedField): boolean => {
   return field.isId;
 };
 
-export const isRequired = (field: DMMF.Field): boolean => {
+export const isRequired = (field: DMMF.Field | ParsedField): boolean => {
   return field.isRequired;
 };
 
-export const isScalar = (field: DMMF.Field): boolean => {
+export const isScalar = (field: DMMF.Field | ParsedField): boolean => {
   return field.kind === 'scalar';
 };
 
-export const hasDefaultValue = (field: DMMF.Field): boolean => {
-  return field.hasDefaultValue;
+export const hasDefaultValue = (field: DMMF.Field | ParsedField): boolean => {
+  return !!field.hasDefaultValue;
 };
 
-export const isUnique = (field: DMMF.Field): boolean => {
+export const isUnique = (field: DMMF.Field | ParsedField): boolean => {
   return field.isUnique;
 };
 
-export const isRelation = (field: DMMF.Field): boolean => {
+export const isRelation = (field: DMMF.Field | ParsedField): boolean => {
   const { kind, relationName } = field;
   // indicates a `relation` field
   return kind === 'object' && !!relationName;
 };
 
-export const isType = (field: DMMF.Field): boolean => {
+export const isType = (field: DMMF.Field | ParsedField): boolean => {
   return field.kind === 'object' && !field.relationName;
 };
 
-export const isIdWithDefaultValue = (field: DMMF.Field): boolean =>
-  isId(field) && hasDefaultValue(field);
+export const isIdWithDefaultValue = (
+  field: DMMF.Field | ParsedField,
+): boolean => isId(field) && hasDefaultValue(field);
 
 /**
  * checks if a DMMF.Field either has `isReadOnly` property or is annotated with
  * `@DtoReadOnly` comment.
  *
  * **Note:** this also removes relation scalar fields as they are marked as `isReadOnly`
- *
- * @param {FieldClassifierParam} param
- * @returns {boolean}
  */
-export const isReadOnly = (field: DMMF.Field): boolean =>
+export const isReadOnly = (field: DMMF.Field | ParsedField): boolean =>
   field.isReadOnly || isAnnotatedWith(field, DTO_READ_ONLY);
 
-export const isUpdatedAt = (field: DMMF.Field): boolean => {
+export const isUpdatedAt = (field: DMMF.Field | ParsedField): boolean => {
   return !!field.isUpdatedAt;
 };
 
@@ -126,5 +125,6 @@ export const isUpdatedAt = (field: DMMF.Field): boolean => {
  *  }
  *  ```
  */
-export const isRequiredWithDefaultValue = (field: DMMF.Field): boolean =>
-  isRequired(field) && hasDefaultValue(field);
+export const isRequiredWithDefaultValue = (
+  field: DMMF.Field | ParsedField,
+): boolean => isRequired(field) && hasDefaultValue(field);

@@ -1,6 +1,7 @@
 import { DMMF } from '@prisma/generator-helper';
+import { WritableDeep } from 'type-fest';
 
-export interface Model extends DMMF.Model {
+export interface Model extends WritableDeep<DMMF.Model> {
   output: {
     dto: string;
     entity: string;
@@ -11,9 +12,14 @@ export interface ParsedField {
   kind: DMMF.FieldKind | 'relation-input';
   name: string;
   type: string;
+  modelName?: string;
   documentation?: string;
   isRequired: boolean;
   isList: boolean;
+  isId: boolean;
+  isUnique: boolean;
+  isReadOnly: boolean;
+  isUpdatedAt?: boolean;
   /**
    * used when rendering Entity templates - fields that are optional in Prisma Schema
    * are returned as `null` values (if not filled) when fetched from PrismaClient.
@@ -29,6 +35,7 @@ export interface ParsedField {
   relationFromFields?: string[];
   relationToFields?: string[];
   pureType?: boolean;
+  jsdoc?: { description?: string; default?: any };
 }
 
 export interface ExtraModel {
@@ -55,7 +62,7 @@ export interface ImportStatementParams {
 }
 
 export interface DtoParams {
-  model: DMMF.Model;
+  model: WritableDeep<DMMF.Model>;
   fields: ParsedField[];
   // should include all Enums, ExtraModels, ConnectDTOs and CreateDTOs for related models
   imports: ImportStatementParams[];

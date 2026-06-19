@@ -5,6 +5,86 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.30.0] - 2026-06-18
+
+### Added
+
+- add `jsdoc` flag to output a basic JSDoc section including the descripton and default value
+
+### Fixed
+
+- fix do not wrap `boolean` as type
+
+## [1.29.0] - 2025-12-12
+
+- dependency updates
+- support for Prisma@7 - output path for client generator is now mandatory
+
+```prisma
+// prisma@6
+generator client {
+  provider = "prisma-client-js"
+}
+
+// prisma@7
+generator client {
+provider = "prisma-client"
+output = "../src/generated/prisma"
+}
+```
+
+## [1.28.1] - 2025-06-05
+
+### Fixed
+
+- fix correct reference to self in case of self relation with wrapRelationsAsType [#75][pr75]
+- fix type in RelationInputDto for field with `@DtoOverrideType` annotation and `wrapRelationsAsType = "true"`
+
+## [1.28.0] - 2025-05-17
+
+### Added
+
+- add `prismaClientImportPath` as possibility to override the import path of Prisma client [#73][i73]
+
+### Changed
+
+- `@DtoCreateRequired` and `@DtoUpdateRequired` also unhides field that would otherwise be omitted (e.g. `@id`, `@updatedAt`), similar to `@DtoCreateOptional`, etc. [#72][i72]
+
+## [1.27.0] - 2025-03-27
+
+- upgrade to Prisma@6
+
+### Changed
+
+- set `prisma` and `@prisma/client` as peerDependencies [#67][i67]
+- `DateTime` field and `@default(now())` attribute prints dynamic date string [#71][i71]
+
+### Fixed
+
+- fix `@DtoOverrideType` on unique fields in ConnectDto [#68][i68]
+- remove `null` from optional relations in CreateDto and UpdateDto [#69][i69]
+
+## [1.26.0] - 2025-03-15
+
+- update dependencies, upgrade to Prisma@5 [#66][i66]
+
+## [1.25.1] - 2025-03-11
+
+### Fixed
+
+- fix missing `@IsEnum()` validator [#65][i65]
+
+## [1.25.0] - 2025-03-07
+
+### Added
+
+- add `@DtoRelationCanUpdateOnUpdate` for "-to-one" relations [#32][i32]
+
+### Fixed
+
+- fix `@ApiProperty` type for `Bytes` field [#64][i64]
+- fix `nullable` in `@ApiProperty` should not be set in ConnectDto 
+
 ## [1.24.1] - 2025-01-18
 
 ### Fixed
@@ -374,6 +454,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [i31]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/31
 [pr27]: https://github.com/Brakebein/prisma-generator-nestjs-dto/pull/27
 [i28]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/28
+[i32]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/32
 [i34]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/34
 [pr36]: https://github.com/Brakebein/prisma-generator-nestjs-dto/pull/36
 [i37]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/37
@@ -393,3 +474,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [pr56]: https://github.com/Brakebein/prisma-generator-nestjs-dto/pull/56
 [i58]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/58
 [i63]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/63
+[i64]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/64
+[i65]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/65
+[i66]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/66
+[i67]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/67
+[i68]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/68
+[i69]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/69
+[i71]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/71
+[i72]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/72
+[i73]: https://github.com/Brakebein/prisma-generator-nestjs-dto/issues/73
+[pr75]: https://github.com/Brakebein/prisma-generator-nestjs-dto/pull/75

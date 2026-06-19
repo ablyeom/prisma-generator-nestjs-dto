@@ -1,10 +1,10 @@
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://johndoe:mypassword@localhost:5432/mydb?schema=public"
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output = "../src/@generated/prisma"
 }
 
 generator nestjsDto {
@@ -25,10 +25,12 @@ generator nestjsDto {
   noDependencies                  = "false"
   outputType                      = "class"
   definiteAssignmentAssertion     = "true"
+  jsdoc                           = "true"
   prettier                        = "true"
   outputApiPropertyType           = "true"
   wrapRelationsAsType             = "false"
   usePartialTypeProperty          = "true"
+  wrapRelationsAsType             = "true"
 }
 
 model Product {
@@ -52,7 +54,7 @@ model Product {
   /// @DtoCreateOptional
   /// @ArrayNotEmpty
   /// @MinLength(3)
-  tags            String[] @default(["hello"])
+  tags            String[]      @default(["hello"])
   /// @DtoCastType(MyType, my-package)
   attributes      Json?
   /// @DtoCastType(SomeType, ../types, CustomType)
@@ -93,17 +95,18 @@ model Product {
   price Decimal
 
   /// @DtoEntityHidden
-  /// @DtoCreateOptional
+  /// @DtoCreateRequired
   /// @DtoUpdateOptional
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   /// @DtoEntityHidden
   /// @DtoCreateOptional
-  /// @DtoUpdateOptional
+  /// @DtoUpdateRequired
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   bikeId String?
   /// @DtoRelationCanConnectOnCreate
+  /// @DtoRelationCanUpdateOnUpdate
   bike   Bike?   @relation(fields: [bikeId], references: [id])
 
   @@map("products")
@@ -118,6 +121,10 @@ model Category {
   /// @DtoOverrideType(ProductFoo2, ./product.foo2)
   /// @DtoOverrideApiPropertyType(ProductFoo3, ./product.foo3)
   product   Product[]
+
+  parentCategoryId String?
+  parentCategory   Category?  @relation(name: "ParentCategory", fields: [parentCategoryId], references: [id])
+  childCategories  Category[] @relation("ParentCategory")
 }
 
 model Company {
@@ -130,6 +137,7 @@ model Company {
 
 model Photo {
   id      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  file    Bytes
   product Product[]
 }
 
@@ -171,6 +179,7 @@ model Bike {
   chassis_number String
   model          String
   /// @DtoApiHidden
+  /// @DtoOverrideType(VendorType, @config/vendors)
   vendor         String
   year_from      Int
   year_to        Int

@@ -1,4 +1,3 @@
-import { DMMF } from '@prisma/generator-helper';
 import { ImportStatementParams, ParsedField } from './types';
 import { decorateApiProperty } from './api-decorator';
 import { decorateClassValidators } from './class-validator';
@@ -8,6 +7,7 @@ import {
   DTO_OVERRIDE_TYPE,
   DTO_TYPE_FULL_UPDATE,
 } from './annotations';
+import { printJsdoc } from './jsdoc';
 
 const PrismaScalarToTypeScript: Record<string, string> = {
   String: 'string',
@@ -112,6 +112,7 @@ interface MakeHelpersParam {
   usePartialTypeProperty: boolean;
   wrapRelationsAsType: boolean;
   showDefaultValues: boolean;
+  outputJsdoc: boolean;
 }
 
 export const makeHelpers = ({
@@ -134,6 +135,7 @@ export const makeHelpers = ({
   usePartialTypeProperty,
   wrapRelationsAsType,
   showDefaultValues,
+  outputJsdoc,
 }: MakeHelpersParam) => {
   const className = (name: string, prefix = '', suffix = '') =>
     `${prefix}${transformClassNameCase(name)}${suffix}`;
@@ -192,8 +194,8 @@ export const makeHelpers = ({
   ) => {
     const doFullUpdate =
       dtoType === 'update' &&
-      isType(field as DMMF.Field) &&
-      isAnnotatedWith(field as DMMF.Field, DTO_TYPE_FULL_UPDATE);
+      isType(field) &&
+      isAnnotatedWith(field, DTO_TYPE_FULL_UPDATE);
 
     const rawCastType = [DTO_OVERRIDE_TYPE, DTO_CAST_TYPE].reduce(
       (cast: string | false, annotation) => {
@@ -218,7 +220,10 @@ export const makeHelpers = ({
           : (field.relationName
               ? entityName(field.type)
               : dtoName(field.type, doFullUpdate ? 'create' : dtoType)) +
-            when(wrapRelationsAsType, 'AsType'))
+            when(
+              wrapRelationsAsType && field.type !== field.modelName,
+              'AsType',
+            ))
     }${when(field.isList, '[]')}`;
   };
 
@@ -228,7 +233,7 @@ export const makeHelpers = ({
     useInputTypes = false,
     forceOptional = false,
   ) =>
-    `${decorateApiProperty(field)}${decorateClassValidators(field)}${
+    `${printJsdoc(field)}${decorateApiProperty(field)}${decorateClassValidators(field)}${
       field.name
     }${unless(
       field.isRequired && !forceOptional,
@@ -264,7 +269,7 @@ export const makeHelpers = ({
         : type.endsWith('[]')
           ? `Partial<${type.slice(0, -2)}>` + '[]'
           : `Partial<${type}>`;
-    return `${decorateApiProperty(field)}${field.name}${unless(
+    return `${printJsdoc(field)}${decorateApiProperty(field)}${field.name}${unless(
       field.isRequired,
       '?',
       when(definiteAssignmentAssertion, '!'),
@@ -296,6 +301,7 @@ export const makeHelpers = ({
       usePartialTypeProperty,
       wrapRelationsAsType,
       showDefaultValues,
+      outputJsdoc,
     },
     apiExtraModels,
     entityName,

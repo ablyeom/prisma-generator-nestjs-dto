@@ -7,6 +7,7 @@ import {
   DTO_OVERRIDE_TYPE,
   DTO_RELATION_CAN_CONNECT_ON_UPDATE,
   DTO_RELATION_CAN_CREATE_ON_UPDATE,
+  DTO_RELATION_CAN_UPDATE_ON_UPDATE,
   DTO_RELATION_CAN_DISCONNECT_ON_UPDATE,
   DTO_RELATION_INCLUDE_ID,
   DTO_RELATION_MODIFIERS_ON_UPDATE,
@@ -37,8 +38,6 @@ import {
   mapDMMFToParsedField,
   zipImportStatementParams,
 } from '../helpers';
-
-import type { DMMF } from '@prisma/generator-helper';
 import {
   makeImportsFromNestjsSwagger,
   parseApiProperty,
@@ -56,6 +55,7 @@ import type {
   ParsedField,
   UpdateDtoParams,
 } from '../types';
+import { parseJsdoc } from '../jsdoc';
 
 interface ComputeUpdateDtoParamsParam {
   model: Model;
@@ -77,7 +77,7 @@ export const computeUpdateDtoParams = ({
 
   const fields = model.fields.reduce((result, field) => {
     const { name } = field;
-    const overrides: Partial<DMMF.Field> = {
+    const overrides: Partial<ParsedField> = {
       isRequired: false,
       isNullable: !field.isRequired,
     };
@@ -103,6 +103,7 @@ export const computeUpdateDtoParams = ({
         preAndSuffixClassName: templateHelpers.updateDtoName,
         canCreateAnnotation: DTO_RELATION_CAN_CREATE_ON_UPDATE,
         canConnectAnnotation: DTO_RELATION_CAN_CONNECT_ON_UPDATE,
+        canUpdateAnnotation: DTO_RELATION_CAN_UPDATE_ON_UPDATE,
         canDisconnectAnnotation: DTO_RELATION_CAN_DISCONNECT_ON_UPDATE,
       });
 
@@ -131,7 +132,10 @@ export const computeUpdateDtoParams = ({
     // fields annotated with @DtoReadOnly are filtered out before this
     // so this safely allows to mark fields that are required in Prisma Schema
     // as **not** required in UpdateDTO
-    const isDtoOptional = isAnnotatedWith(field, DTO_UPDATE_OPTIONAL);
+    const isDtoOptional = isAnnotatedWithOneOf(field, [
+      DTO_UPDATE_OPTIONAL,
+      DTO_UPDATE_REQUIRED,
+    ]);
     const doFullUpdate = isAnnotatedWith(field, DTO_TYPE_FULL_UPDATE);
 
     if (!isDtoOptional) {
@@ -227,7 +231,7 @@ export const computeUpdateDtoParams = ({
           {
             ...field,
             ...overrides,
-            isNullable: !field.isRequired,
+            isNullable: overrides.isNullable ?? !field.isRequired,
           },
           {
             type: includeType,
@@ -270,7 +274,18 @@ export const computeUpdateDtoParams = ({
       }
     }
 
-    return [...result, mapDMMFToParsedField(field, overrides, decorators)];
+    if (templateHelpers.config.outputJsdoc) {
+      overrides.jsdoc = parseJsdoc(field, true);
+    }
+
+    return [
+      ...result,
+      mapDMMFToParsedField(
+        field,
+        { ...overrides, modelName: model.name },
+        decorators,
+      ),
+    ];
   }, [] as ParsedField[]);
 
   const importPrismaClient = makeImportsFromPrismaClient(

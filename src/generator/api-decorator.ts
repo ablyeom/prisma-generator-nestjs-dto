@@ -1,4 +1,3 @@
-import { DMMF } from '@prisma/generator-helper';
 import { IApiProperty, ImportStatementParams, ParsedField } from './types';
 import { DTO_OVERRIDE_API_PROPERTY_TYPE } from './annotations';
 import { isAnnotatedWith } from './field-classifiers';
@@ -25,6 +24,7 @@ const PrismaScalarToFormat: Record<string, { type: string; format?: string }> =
     Float: { type: 'number', format: 'float' },
     Decimal: { type: 'string', format: 'Decimal.js' },
     DateTime: { type: 'string', format: 'date-time' },
+    Bytes: { type: 'string', format: 'binary' },
   };
 
 export function isAnnotatedWithDoc(field: ParsedField): boolean {
@@ -33,7 +33,7 @@ export function isAnnotatedWithDoc(field: ParsedField): boolean {
   );
 }
 
-function getDefaultValue(field: ParsedField): any {
+export function getDefaultValue(field: ParsedField): any {
   if (!field.hasDefaultValue) return undefined;
 
   if (Array.isArray(field.default)) return JSON.stringify(field.default);
@@ -95,7 +95,7 @@ export function encapsulateString(value: string): string {
  * @param include All default to `true`. Set to `false` if you want to exclude a type of annotation.
  */
 export function parseApiProperty(
-  field: DMMF.Field,
+  field: ParsedField,
   include: {
     default?: boolean;
     doc?: boolean;
@@ -160,7 +160,15 @@ export function parseApiProperty(
 
   const defaultValue = getDefaultValue(field);
   if (incl.default && defaultValue !== undefined) {
-    properties.push({ name: 'default', value: `${defaultValue}` });
+    if (defaultValue === 'now' && field.type === 'DateTime') {
+      properties.push({
+        name: 'default',
+        value: 'new Date().toISOString()',
+        noEncapsulation: true,
+      });
+    } else {
+      properties.push({ name: 'default', value: `${defaultValue}` });
+    }
   }
 
   if (!field.isRequired) {

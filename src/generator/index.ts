@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { camel, pascal, kebab, snake } from 'case';
 import { DMMF } from '@prisma/generator-helper';
+import { WritableDeep } from 'type-fest';
 import { logger } from '../utils';
 import { makeHelpers } from './template-helpers';
 import { computeModelParams } from './compute-model-params';
@@ -17,7 +18,7 @@ import { NamingStyle, Model, WriteableFileSpecs } from './types';
 
 interface RunParam {
   output: string;
-  dmmf: DMMF.Document;
+  dmmf: WritableDeep<DMMF.Document>;
   exportRelationModifierClasses: boolean;
   outputToNestJsResourceStructure: boolean;
   flatResourceStructure: boolean;
@@ -39,6 +40,7 @@ interface RunParam {
   usePartialTypeProperty: boolean;
   wrapRelationsAsType: boolean;
   showDefaultValues: boolean;
+  outputJsdoc: boolean;
 }
 
 export const run = ({
@@ -62,6 +64,7 @@ export const run = ({
     usePartialTypeProperty,
     wrapRelationsAsType,
     showDefaultValues,
+    outputJsdoc,
     ...preAndSuffixes
   } = options;
 
@@ -88,13 +91,14 @@ export const run = ({
     usePartialTypeProperty,
     wrapRelationsAsType,
     showDefaultValues,
+    outputJsdoc,
     ...preAndSuffixes,
   });
   const allModels = dmmf.datamodel.models;
 
   const filteredTypes: Model[] = dmmf.datamodel.types
     .filter((model) => !isAnnotatedWith(model, DTO_IGNORE_MODEL))
-    .map((model: DMMF.Model) => ({
+    .map((model) => ({
       ...model,
       output: {
         dto: outputToNestJsResourceStructure

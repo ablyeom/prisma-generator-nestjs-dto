@@ -1,6 +1,5 @@
 datasource db {
   provider = "mongodb"
-  url      = env("DATABASE_URL")
 }
 
 generator nestjsDto {
@@ -20,6 +19,7 @@ generator nestjsDto {
   classValidation                 = "true"
   noDependencies                  = "false"
   outputType                      = "class"
+  jsdoc                           = "true"
   prettier                        = "true"
   requiredResponseApiProperty     = "false"
 }

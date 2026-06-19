@@ -3,6 +3,7 @@ import path from 'node:path';
 import makeDir from 'make-dir';
 import slash from 'slash';
 import { generatorHandler, GeneratorOptions } from '@prisma/generator-helper';
+import { WritableDeep } from 'type-fest';
 import prettier from 'prettier';
 import { logger, parseEnvValue, warn } from './utils';
 import { run } from './generator';
@@ -10,7 +11,10 @@ import type { WriteableFileSpecs, NamingStyle } from './generator/types';
 import { isAnnotatedWith } from './generator/field-classifiers';
 import { DTO_CAST_TYPE } from './generator/annotations';
 
-const stringToBoolean = (input: string, defaultValue = false) => {
+const stringToBoolean = (
+  input: string | string[] | undefined,
+  defaultValue = false,
+) => {
   if (input === 'true') {
     return true;
   }
@@ -21,8 +25,7 @@ const stringToBoolean = (input: string, defaultValue = false) => {
   return defaultValue;
 };
 
-export const generate = async (options: GeneratorOptions) => {
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+export const generate = async (options: WritableDeep<GeneratorOptions>) => {
   const output = parseEnvValue(options.generator.output!);
   if (!output) {
     throw new Error('Failed to parse output path');
@@ -67,7 +70,7 @@ export const generate = async (options: GeneratorOptions) => {
   const isSupportedFileNamingStyle = (style: string): style is NamingStyle =>
     supportedFileNamingStyles.includes(style);
 
-  if (!isSupportedFileNamingStyle(fileNamingStyle)) {
+  if (!isSupportedFileNamingStyle(fileNamingStyle as string)) {
     throw new Error(
       `'${fileNamingStyle}' is not a valid file naming style. Valid options are ${supportedFileNamingStyles
         .map((s) => `'${s}'`)
@@ -82,7 +85,7 @@ export const generate = async (options: GeneratorOptions) => {
   );
 
   const supportedOutputTypes = ['class', 'interface'];
-  if (!supportedOutputTypes.includes(outputType)) {
+  if (!supportedOutputTypes.includes(outputType as string)) {
     throw new Error(
       `'${outputType}' is not a valid output type. Valid options are 'class' and 'interface'.`,
     );
@@ -125,8 +128,10 @@ export const generate = async (options: GeneratorOptions) => {
     (config) => config.name === 'client',
   );
   const prismaClientOutputPath = prismaClientGenerator?.output?.value;
-  let prismaClientImportPath = '@prisma/client';
+  let prismaClientImportPath =
+    options.generator.config.prismaClientImportPath || '@prisma/client';
   if (
+    !options.generator.config.prismaClientImportPath &&
     prismaClientOutputPath &&
     !prismaClientOutputPath.endsWith(
       ['node_modules', '@prisma', 'client'].join(path.sep),
@@ -142,6 +147,10 @@ export const generate = async (options: GeneratorOptions) => {
     );
     if (!prismaClientImportPath.startsWith('.')) {
       prismaClientImportPath = './' + prismaClientImportPath;
+    }
+    // add client suffix for Prisma v7 output
+    if (prismaClientGenerator?.provider?.value === 'prisma-client') {
+      prismaClientImportPath += '/client';
     }
   }
 
@@ -170,30 +179,33 @@ export const generate = async (options: GeneratorOptions) => {
     false,
   );
 
+  const outputJsdoc = stringToBoolean(options.generator.config.jsdoc, false);
+
   const results = run({
     output,
     dmmf: options.dmmf,
     exportRelationModifierClasses,
     outputToNestJsResourceStructure,
     flatResourceStructure,
-    connectDtoPrefix,
-    createDtoPrefix,
-    updateDtoPrefix,
-    dtoSuffix,
-    entityPrefix,
-    entitySuffix,
-    fileNamingStyle,
+    connectDtoPrefix: connectDtoPrefix as string,
+    createDtoPrefix: createDtoPrefix as string,
+    updateDtoPrefix: updateDtoPrefix as string,
+    dtoSuffix: dtoSuffix as string,
+    entityPrefix: entityPrefix as string,
+    entitySuffix: entitySuffix as string,
+    fileNamingStyle: fileNamingStyle as NamingStyle,
     classValidation,
-    outputType,
+    outputType: outputType as string,
     noDependencies,
     definiteAssignmentAssertion,
     requiredResponseApiProperty,
-    prismaClientImportPath,
+    prismaClientImportPath: prismaClientImportPath as string,
     outputApiPropertyType,
-    generateFileTypes,
     usePartialTypeProperty,
+    generateFileTypes: generateFileTypes as string,
     wrapRelationsAsType,
     showDefaultValues,
+    outputJsdoc,
   });
 
   // check for deprecated annotations

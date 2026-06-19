@@ -17,8 +17,6 @@ import {
   mapDMMFToParsedField,
   zipImportStatementParams,
 } from '../helpers';
-
-import type { DMMF } from '@prisma/generator-helper';
 import type { TemplateHelpers } from '../template-helpers';
 import type {
   Model,
@@ -31,6 +29,7 @@ import {
   makeImportsFromNestjsSwagger,
   parseApiProperty,
 } from '../api-decorator';
+import { parseJsdoc } from '../jsdoc';
 
 interface ComputePlainDtoParamsParam {
   model: Model;
@@ -50,7 +49,7 @@ export const computePlainDtoParams = ({
 
   const fields = model.fields.reduce((result, field) => {
     const { name } = field;
-    const overrides: Partial<DMMF.Field> = {
+    const overrides: Partial<ParsedField> = {
       isRequired: true,
       isNullable: !field.isRequired,
     };
@@ -149,7 +148,18 @@ export const computePlainDtoParams = ({
       }
     }
 
-    return [...result, mapDMMFToParsedField(field, overrides, decorators)];
+    if (templateHelpers.config.outputJsdoc) {
+      overrides.jsdoc = parseJsdoc(field, false);
+    }
+
+    return [
+      ...result,
+      mapDMMFToParsedField(
+        field,
+        { ...overrides, modelName: model.name },
+        decorators,
+      ),
+    ];
   }, [] as ParsedField[]);
 
   const importPrismaClient = makeImportsFromPrismaClient(

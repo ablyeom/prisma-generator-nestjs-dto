@@ -1,9 +1,10 @@
 import { mapDMMFToParsedField } from './helpers';
 import type { DMMF } from '@prisma/generator-helper';
+import { WritableDeep } from 'type-fest';
 import { ParsedField } from './types';
 
 describe('map DMMF.Field to ParsedField', () => {
-  const field: DMMF.Field = {
+  const field: WritableDeep<DMMF.Field> = {
     name: 'a',
     kind: 'scalar',
     type: 'string',
@@ -29,7 +30,9 @@ describe('map DMMF.Field to ParsedField', () => {
     Object.keys(field)
       .filter((key) => key !== 'name')
       .forEach((key) => {
-        expect(parsedField[key as keyof ParsedField]).toBe(field[key]);
+        expect(parsedField[key as keyof ParsedField]).toBe(
+          field[key as keyof DMMF.Field],
+        );
       });
   });
 });
